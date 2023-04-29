@@ -1,0 +1,41 @@
+package:
+  name: "rateslib"
+  version: "0.1.0"
+
+source:
+  url: https://files.pythonhosted.org/packages/7d/b1/91075f8d8690be7296d597a8a00151e82f0ad82e563eef057688c4b62bb2/rateslib-0.1.0.tar.gz
+  sha265: 878d2dcaae70203e762c1d4af24aa0d2d649894141e32f266e4abfc4fdebe5ae
+
+build:
+  script: python setup.py install --single-version-externally-managed --record=record.txt
+
+requirements:
+#  host:
+#    - python
+#    - setuptools
+  build:
+    - python
+    - setuptools
+    - numpy >=1.21.5
+    - scipy >=1.8.0
+    - matplotlib >=3.5.1
+    - pandas >=1.4.1
+  run:
+    - python
+    - setuptools
+    - numpy >=1.21.5
+    - scipy >=1.8.0
+    - matplotlib >=3.5.1
+    - pandas >=1.4.1
+
+about:
+  home: https://github.com/attack68/rateslib
+  license: CC BY-NC-ND
+  license_familY: CC
+  license_file: LICENSE
+  summary: "Fixed Income Library"
+  doc_url: https://rateslib.readthedocs.io/en/stable/
+
+extra:
+  recipe-maintainers:
+    - attack68
