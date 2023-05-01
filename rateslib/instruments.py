@@ -33,6 +33,7 @@ from pandas import DataFrame, concat, date_range, Series
 from rateslib import defaults
 from rateslib.calendars import add_tenor, _add_days, get_calendar, dcf
 from rateslib.scheduling import Schedule
+from rateslib.cextensions import brents
 from rateslib.curves import Curve, index_left, LineCurve
 from rateslib.solver import Solver
 from rateslib.periods import Cashflow, FixedPeriod, FloatPeriod, _get_fx_and_base
@@ -925,7 +926,7 @@ class FixedRateBond(Sensitivities, BaseMixin):
             # back below, see PR GH3
             return self._price_from_ytm(y, settlement, dirty) - float(price)
         # x = brentq(root, -99, 10000)  # remove dependence to scipy brentq
-        x, iters = _brents(root, -99, 10000)
+        x, iters = brents(root, -99, 10000)
 
         if isinstance(price, Dual):
             # use the inverse function theorem to express x as a Dual
@@ -951,8 +952,8 @@ class FixedRateBond(Sensitivities, BaseMixin):
         price: Union[float, Dual, Dual2],
         settlement: datetime,
         forward_settlement: datetime,
-        repo_rate : Union[float, Dual, Dual2],
-        convention : Optional[str] = None,
+        repo_rate: Union[float, Dual, Dual2],
+        convention: Optional[str] = None,
         dirty: bool = False,
     ):
         """
