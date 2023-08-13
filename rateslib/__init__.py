@@ -1,7 +1,7 @@
 __docformat__ = "restructuredtext"
 
 # Let users know if they're missing any of our hard dependencies
-_hard_dependencies = ("pandas", "scipy", "matplotlib", "numpy")
+_hard_dependencies = ("pandas", "matplotlib", "numpy")
 _missing_dependencies = []
 
 for _dependency in _hard_dependencies:
@@ -12,10 +12,13 @@ for _dependency in _hard_dependencies:
 
 from datetime import datetime as dt
 
-from rateslib.defaults import Defaults
+from rateslib.default import Defaults
+
 defaults = Defaults()
 
 from contextlib import ContextDecorator
+
+
 class default_context(ContextDecorator):
     """
     Context manager to temporarily set options in the `with` statement context.
@@ -30,9 +33,7 @@ class default_context(ContextDecorator):
 
     def __init__(self, *args) -> None:
         if len(args) % 2 != 0 or len(args) < 2:
-            raise ValueError(
-                "Need to invoke as option_context(pat, val, [(pat, val), ...])."
-            )
+            raise ValueError("Need to invoke as option_context(pat, val, [(pat, val), ...]).")
 
         self.ops = list(zip(args[::2], args[1::2]))
 
@@ -48,72 +49,62 @@ class default_context(ContextDecorator):
                 setattr(defaults, pat, val)
 
 
-from rateslib.dual import (
-    Dual,
-    Dual2,
-    dual_log,
-    dual_exp,
-    dual_solve
-)
+from rateslib.dual import Dual, Dual2, dual_log, dual_exp, dual_solve
 
-from rateslib.calendars import (
-    create_calendar,
-    get_calendar,
-    add_tenor,
-    dcf
-)
+from rateslib.calendars import create_calendar, get_calendar, add_tenor, dcf
 
-from rateslib.splines import (
-    bsplev_single,
-    bspldnev_single,
-    PPSpline
-)
+from rateslib.splines import bsplev_single, bspldnev_single, PPSpline
 
-from rateslib.scheduling import (
-    Schedule
-)
+from rateslib.scheduling import Schedule
 
 from rateslib.curves import (
     Curve,
     LineCurve,
     interpolate,
-    index_left
+    index_left,
+    IndexCurve,
+    CompositeCurve,
+    ProxyCurve,
 )
 
 from rateslib.fx import (
     FXRates,
     FXForwards,
-    ProxyCurve,
 )
 
-from rateslib.solver import (
-    Solver
-)
+from rateslib.solver import Solver
 
 from rateslib.periods import (
     FixedPeriod,
     FloatPeriod,
-    Cashflow
+    Cashflow,
+    IndexFixedPeriod,
+    IndexCashflow,
 )
 
 from rateslib.legs import (
     FixedLeg,
-    FixedLegExchange,
-    FixedLegExchangeMtm,
+    FixedLegMtm,
     FloatLeg,
-    FloatLegExchange,
-    FloatLegExchangeMtm,
+    FloatLegMtm,
     ZeroFloatLeg,
-    CustomLeg
+    ZeroFixedLeg,
+    ZeroIndexLeg,
+    IndexFixedLeg,
+    CustomLeg,
 )
 
 from rateslib.instruments import (
     Value,
     Bill,
     FixedRateBond,
+    IndexFixedRateBond,
     FloatRateBond,
+    BondFuture,
     IRS,
+    IIRS,
     ZCS,
+    ZCIS,
     FRA,
     Swap,
     SBS,
@@ -140,13 +131,6 @@ fixed income instrument configuration and calculation.
 It aims to be the fundamental high-level building block for practical analysis of
 fixed income securities, derivatives, FX representation and curve construction
 in Python.
-
-Main Features
--------------
-Here are just a few of the things that pandas does well:
-
-  - Easy handling of missing data in floating point as well as non-floating
-    point data.
 """
 
 # Use __all__ to let type checkers know what is part of the public API.
@@ -175,6 +159,9 @@ __all__ = [
     # curves.py
     "Curve",
     "LineCurve",
+    "IndexCurve",
+    "CompositeCurve",
+    "ProxyCurve",
     "interpolate",
     "index_left",
     # solver.py
@@ -182,29 +169,35 @@ __all__ = [
     # fx.py
     "FXRates",
     "FXForwards",
-    "ProxyCurve",
     # periods.py,
     "FixedPeriod",
     "FloatPeriod",
     "Cashflow",
+    "IndexCashflow",
+    "IndexFixedPeriod",
     # legs.py
     "FixedLeg",
     "FloatLeg",
     "ZeroFloatLeg",
-    "FixedLegExchange",
-    "FixedLegExchangeMtm",
-    "FloatLegExchange",
-    "FloatLegExchangeMtm",
+    "ZeroFixedLeg",
+    "FixedLegMtm",
+    "FloatLegMtm",
+    "IndexFixedLeg",
+    "ZeroIndexLeg",
     "CustomLeg",
     # instruments.py
     "FixedRateBond",
+    "IndexFixedRateBond",
     "FloatRateBond",
+    "BondFuture",
     "FRA",
     "Value",
     "Bill",
     "IRS",
+    "IIRS",
     "Swap",
     "ZCS",
+    "ZCIS",
     "SBS",
     "FXSwap",
     "NonMtmXCS",

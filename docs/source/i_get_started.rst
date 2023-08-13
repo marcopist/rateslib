@@ -53,10 +53,6 @@ environment.
      - 3.6.3
      - 3.5.1
      - (used for plotting curves)
-   * - SciPy
-     - 1.9.3
-     - 1.8.0
-     - (used for `brentq` algorithm in bond yield solving)
 
 
 Introduction to Rateslib
@@ -90,11 +86,16 @@ Introduction to Rateslib
 
 - Discount securities - :class:`~rateslib.instruments.Bill`,
 - Regular nominal bonds - :class:`~rateslib.instruments.FixedRateBond`,
+- Bond futures - :class:`~rateslib.instruments.BondFuture`,
+- Index linked bonds - :class:`~rateslib.instruments.IndexFixedRateBond`,
 - Also FRNs - :class:`~rateslib.instruments.FloatRateBond`.
 
 **Single Currency Derivatives**
 
 - Interest rate swaps (both IBOR and RFR) - :class:`~rateslib.instruments.IRS`,
+- Index interest rate swaps - :class:`~rateslib.instruments.IIRS`,
+- Zero coupon swaps - :class:`~rateslib.instruments.ZCS`,
+- Zero coupon index swaps - :class:`~rateslib.instruments.ZCIS`,
 - Basis swaps - :class:`~rateslib.instruments.SBS`,
 - Forward rate agreements - :class:`~rateslib.instruments.FRA`.
 

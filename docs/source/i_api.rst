@@ -14,14 +14,31 @@ Indices and tables
 * :ref:`modindex`
 * :ref:`search`
 
+Notation
+--------
+
+.. math::
+
+   d \quad \text{or} \quad d_i =& \text{DCF of period} \; (i) \\
+   m \quad \text{or} \quad m_i =& \text{Maturity date of period} \; (i) \\
+   v(m) =& \text{DF of period payment date,} \; m \\
+   N \quad \text{or} \quad N_i =& \text{Notional of period} \; (i) \\
+   R =& \text{Fixed rate of period or leg} \\
+   z =& \text{Floating period spread} \\
+   r(r_i, z) =& \text{Floating rate of period as a function of fixings,} \; (r_i) \\
+   C =& \text{Cashflow} \\
+   P =& \text{Net present value} \\
+   I(m) =& \text{Index ratio applicable at maturity,} \; m \\
+
 Defaults
 ---------
 
-.. automodapi:: rateslib.defaults
+.. automodapi:: rateslib.default
    :no-heading:
    :no-inheritance-diagram:
    :skip: plot
    :skip: BusinessDay
+   :skip: datetime
 
 Calendars
 ---------
@@ -31,6 +48,8 @@ Calendars
    :skip: floor
    :skip: next_monday
    :skip: next_monday_or_tuesday
+   :skip: nearest_workday
+   :skip: sunday_to_monday
 
 Scheduling
 ----------
@@ -41,7 +60,6 @@ Scheduling
    :skip: Any
    :skip: CustomBusinessDay
    :skip: DataFrame
-   :skip: Day
    :skip: Iterator
    :skip: datetime
    :skip: product
@@ -73,6 +91,8 @@ Dual (for AD)
 .. automodapi:: rateslib.dual
    :no-heading:
    :skip: isclose
+   :skip: abstractmethod
+   :skip: ABCMeta
 
 Curves
 ------
@@ -80,6 +100,7 @@ Curves
 .. automodapi:: rateslib.curves
    :no-heading:
    :inherited-members:
+   :skip: set_order_convert
    :skip: add_tenor
    :skip: create_calendar
    :skip: dcf
@@ -92,11 +113,11 @@ Curves
    :skip: Any
    :skip: CustomBusinessDay
    :skip: Dual
-   :skip: Dual2
    :skip: PPSpline
    :skip: datetime
    :skip: timedelta
    :skip: Holiday
+   :skip: comb
 
 
 FX
@@ -104,9 +125,10 @@ FX
 
 .. automodapi:: rateslib.fx
    :no-heading:
-   :skip: Any
    :skip: Curve
    :skip: LineCurve
+   :skip: ProxyCurve
+   :skip: CompositeCurve
    :skip: CustomBusinessDay
    :skip: DataFrame
    :skip: Dual
@@ -114,23 +136,31 @@ FX
    :skip: datetime
    :skip: product
    :skip: timedelta
+   :skip: add_tenor
+   :skip: dual_solve
+   :skip: plot
+   :skip: set_order
 
 Periods
 -------
 
+Link to the :ref:`Periods<periods-doc>` section in the user guide.
+
 .. automodapi:: rateslib.periods
    :no-heading:
    :skip: ABCMeta
+   :skip: IndexCurve
    :skip: Curve
-   :skip: CustomBusinessDay
    :skip: DataFrame
    :skip: Dual
    :skip: Dual2
    :skip: FXRates
    :skip: FXForwards
    :skip: LineCurve
+   :skip: CompositeCurve
    :skip: Series
    :skip: datetime
+   :skip: comb
 
 Legs
 ----
@@ -151,6 +181,10 @@ Legs
    :skip: FixedPeriod
    :skip: FloatPeriod
    :skip: Schedule
+   :skip: IndexCashflow
+   :skip: IndexFixedPeriod
+   :skip: IndexCurve
+   :skip: IndexMixin
 
 Instruments
 -----------
@@ -158,18 +192,21 @@ Instruments
 .. automodapi:: rateslib.instruments
    :no-heading:
    :inherited-members:
+   :skip: IndexCurve
+   :skip: IndexFixedLeg
+   :skip: IndexMixin
+   :skip: ZeroIndexLeg
+   :skip: forward_fx
    :skip: abstractmethod
    :skip: add_tenor
-   :skip: brentq
    :skip: concat
-   :skip: date_range
    :skip: dcf
    :skip: get_calendar
    :skip: index_left
-   :skip: set_order
    :skip: ABCMeta
    :skip: Curve
    :skip: CustomBusinessDay
+   :skip: MultIndex
    :skip: DataFrame
    :skip: Dual
    :skip: Dual2
@@ -180,17 +217,16 @@ Instruments
    :skip: Cashflow
    :skip: FixedPeriod
    :skip: FloatPeriod
-   :skip: Schedule
-   :skip: CustomLeg
    :skip: FixedLeg
-   :skip: FixedLegExchange
-   :skip: FixedLegExchangeMtm
+   :skip: FixedLegMtm
    :skip: FloatLeg
-   :skip: FloatLegExchange
-   :skip: FloatLegExchangeMtm
+   :skip: FloatLegMtm
    :skip: ZeroFloatLeg
    :skip: LineCurve
    :skip: Solver
+   :skip: CompositeCurve
+   :skip: ZeroFixedLeg
+   :skip: forward_fx
 
 Solver
 ------
@@ -204,3 +240,5 @@ Solver
    :skip: combinations
    :skip: MultiIndex
    :skip: Series
+   :skip: CompositeCurve
+   :skip: ProxyCurve

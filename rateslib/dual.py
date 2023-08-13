@@ -1,9 +1,11 @@
 from math import isclose
+from abc import abstractmethod, ABCMeta
+from typing import Union, Optional
 import math
 import numpy as np
 
 PRECISION = 1e-14
-FLOATS = (float, np.float16, np.float32, np.float64, np.float128)
+FLOATS = (float, np.float16, np.float32, np.float64, np.longdouble)
 INTS = (int, np.int8, np.int16, np.int32, np.int32, np.int64)
 
 # Licence: Creative Commons - Attribution-NonCommercial-NoDerivatives 4.0 International
@@ -11,10 +13,18 @@ INTS = (int, np.int8, np.int16, np.int32, np.int32, np.int64)
 # Contact rateslib at gmail.com if this code is observed outside its intended sphere.
 
 
-class DualBase:
+class DualBase(metaclass=ABCMeta):
     """
     Base class for dual number implementation.
     """
+
+    dual: np.ndarray = np.zeros(0)
+    dual2: np.ndarray = np.zeros(0)
+
+    def __init__(self, real: float, vars: tuple[str, ...] = tuple()) -> None:  # pragma: no cover
+        # each dual overloads init
+        self.real: float = real
+        self.vars: tuple[str, ...] = vars
 
     def __float__(self):
         return float(self.real)
@@ -22,27 +32,51 @@ class DualBase:
     def __abs__(self):
         return abs(self.real)
 
+    def __lt__(self, argument):
+        """Compare an argument by evaluating the size of the real."""
+        if not isinstance(argument, type(self)):
+            if not isinstance(argument, (*FLOATS, *INTS)):
+                raise TypeError(f"Cannot compare {type(self)} with incompatible type.")
+            argument = type(self)(float(argument))
+        if float(self) < float(argument):
+            return True
+        return False
+
+    def __gt__(self, argument):
+        """Compare an argument by evaluating the size of the real."""
+        if not isinstance(argument, type(self)):
+            if not isinstance(argument, (*FLOATS, *INTS)):
+                raise TypeError(f"Cannot compare {type(self)} with incompatible type.")
+            argument = type(self)(float(argument))
+        if float(self) > float(argument):
+            return True
+        return False
+
     def __eq__(self, argument):
         """Compare an argument with a Dual number for equality."""
         if not isinstance(argument, type(self)):
             if not isinstance(argument, (*FLOATS, *INTS)):
                 raise TypeError(f"Cannot compare {type(self)} with incompatible type.")
-            argument = type(self)(argument)
+            argument = type(self)(float(argument))
         if self.vars == argument.vars:
-            return self.__eq_coeffs__(argument)
+            return self.__eq_coeffs__(argument, PRECISION)
         else:
             self_, argument = self.__upcast_combined__(argument)
             return self_.__eq__(argument)
 
-    def __eq_coeffs__(self, argument):
+    def __eq_coeffs__(self, argument, precision):
         """Compare the coefficients of two Dual numbers for equality."""
-        if not isclose(self.real, argument.real, abs_tol=PRECISION):
+        if not isclose(self.real, argument.real, abs_tol=precision):
             return False
-        elif not np.all(np.isclose(self.dual, argument.dual, atol=PRECISION)):
+        elif not np.all(np.isclose(self.dual, argument.dual, atol=precision)):
             return False
-        elif getattr(self, "dual2", None) is not None:
-            if not np.all(np.isclose(self.dual2, argument.dual2, atol=PRECISION)):
+        if type(self) is Dual2 and type(argument) is Dual2:
+            if not np.all(np.isclose(self.dual2, argument.dual2, atol=precision)):
                 return False
+        elif type(self) is Dual2 or type(argument) is Dual2:
+            # this line should not be hit TypeError should raise earlier
+            # cannot compare Dual with Dual2
+            return False  # pragma: no cover
         return True
 
     def __upcast_combined__(self, arg):
@@ -52,24 +86,9 @@ class DualBase:
         new_arg = arg if new_vars == arg.vars else arg.__upcast_vars__(new_vars)
         return new_self, new_arg
 
-    def __repr__(self):
-        dual2 = getattr(self, "dual2", None)
-        if dual2 is None:
-            name, final = "Dual", ""
-        else:
-            name, final = "Dual2", f", [[...]]"
-        return f"<{name}: {self.real:,.6f}, {self.vars}, {self.dual}{final}>"
-
-    def __str__(self):
-        output = f" val = {self.real:.8f}\n"
-        for i, tag in enumerate(self.vars):
-            output += f"  d{tag} = {self.dual[i]:.6f}\n"
-        if getattr(self, "dual2", None) is not None:
-            for i, ltag in enumerate(self.vars):
-                for j, rtag in enumerate(self.vars):
-                    if j >= i:
-                        output += f"d{ltag}d{rtag} = {2 * self.dual2[i,j]:.6f}\n"
-        return output
+    @abstractmethod
+    def __upcast_vars__(self, new_vars: list[str]):
+        pass  # pragma: no cover
 
     def gradient(self, vars=None, order=1, keep_manifold=False):
         """
@@ -119,6 +138,7 @@ class DualBase:
 # Commercial use of this code, and/or copying and redistribution is prohibited.
 # Contact rateslib at gmail.com if this code is observed outside its intended sphere.
 
+
 class Dual2(DualBase):
     """
     Dual number data type to perform second derivative automatic differentiation.
@@ -158,6 +178,20 @@ class Dual2(DualBase):
         self.real = real
         self.dual = np.asarray(dual.copy()) if dual is not None else np.ones(n)
         self.dual2 = np.asarray(dual2.copy()) if dual2 is not None else np.zeros((n, n))
+
+    def __repr__(self):
+        name, final = "Dual2", ", [[...]]"
+        return f"<{name}: {self.real:,.6f}, {self.vars}, {self.dual}{final}>"
+
+    def __str__(self):
+        output = f" val = {self.real:.8f}\n"
+        for i, tag in enumerate(self.vars):
+            output += f"  d{tag} = {self.dual[i]:.6f}\n"
+        for i, ltag in enumerate(self.vars):
+            for j, rtag in enumerate(self.vars):
+                if j >= i:
+                    output += f"d{ltag}d{rtag} = {2 * self.dual2[i,j]:.6f}\n"
+        return output
 
     def __neg__(self):
         return Dual2(-self.real, self.vars, -self.dual, -self.dual2)
@@ -208,19 +242,19 @@ class Dual2(DualBase):
                     self.real * argument,
                     self.vars,
                     self.dual * argument,
-                    self.dual2 * argument
+                    self.dual2 * argument,
                 )
             raise TypeError("Dual2 operations defined between float, int or Dual2.")
 
         if self.vars == argument.vars:
             dual2 = self.dual2 * argument.real + argument.dual2 * self.real
-            _ = np.einsum('i,j', self.dual, argument.dual)
+            _ = np.einsum("i,j", self.dual, argument.dual)
             dual2 += (_ + _.T) / 2
             return Dual2(
                 self.real * argument.real,
                 self.vars,
                 self.dual * argument.real + argument.dual * self.real,
-                dual2
+                dual2,
             )
         else:
             self_, argument = self.__upcast_combined__(argument)
@@ -237,7 +271,7 @@ class Dual2(DualBase):
                     self.real / argument,
                     self.vars,
                     self.dual / argument,
-                    self.dual2 / argument
+                    self.dual2 / argument,
                 )
             raise TypeError("Dual2 operations defined between float, int or Dual2.")
 
@@ -259,10 +293,10 @@ class Dual2(DualBase):
             coeff = power * self.real ** (power - 1)
             coeff2 = power * (power - 1) * self.real ** (power - 2) * 0.5
             return Dual2(
-                self.real ** power,
+                self.real**power,
                 self.vars,
                 self.dual * coeff,
-                self.dual2 * coeff + np.einsum("i,j", self.dual, self.dual) * coeff2
+                self.dual2 * coeff + np.einsum("i,j", self.dual, self.dual) * coeff2,
             )
         elif isinstance(power, np.ndarray):
             return power.__rpow__(self)
@@ -274,7 +308,7 @@ class Dual2(DualBase):
             const,
             self.vars,
             self.dual * const,
-            const * (self.dual2 + np.einsum("i,j", self.dual, self.dual) * 0.5 )
+            const * (self.dual2 + np.einsum("i,j", self.dual, self.dual) * 0.5),
         )
 
     def __log__(self):
@@ -282,7 +316,7 @@ class Dual2(DualBase):
             math.log(self.real),
             self.vars,
             self.dual / self.real,
-            self.dual2 / self.real - np.einsum("i,j", self.dual, self.dual) * 0.5 / self.real**2
+            self.dual2 / self.real - np.einsum("i,j", self.dual, self.dual) * 0.5 / self.real**2,
         )
 
     def __upcast_vars__(self, new_vars):
@@ -294,13 +328,11 @@ class Dual2(DualBase):
 
     def __downcast_vars__(self):
         """removes variables where first and second order sensitivity is zero"""
-        ix_ = np.where(np.isclose(self.dual, 0, atol=PRECISION) == False)[0]
-        ix2_ = np.where(np.isclose(self.dual2.sum(axis=0), 0, atol=PRECISION) == False)[0]
+        ix_ = np.where(~np.isclose(self.dual, 0, atol=PRECISION))[0]
+        ix2_ = np.where(~np.isclose(self.dual2.sum(axis=0), 0, atol=PRECISION))[0]
         ixu = np.union1d(ix_, ix2_)
         new_vars = [self.vars[i] for i in ixu]
-        return Dual2(
-            self.real, new_vars, self.dual[ixu], self.dual2[np.ix_(ixu, ixu)]
-        )
+        return Dual2(self.real, new_vars, self.dual[ixu], self.dual2[np.ix_(ixu, ixu)])
 
     def _set_order(self, order):
         if order == 1:
@@ -315,6 +347,7 @@ class Dual2(DualBase):
 # Commercial use of this code, and/or copying and redistribution is prohibited.
 # Contact rateslib at gmail.com if this code is observed outside its intended sphere.
 
+
 class Dual(DualBase):
     """
     Dual number data type to perform first derivative automatic differentiation.
@@ -323,7 +356,7 @@ class Dual(DualBase):
     ----------
     real : float, int
         The real coefficient of the dual number
-    vars : list of str, optional
+    vars : tuple of str, optional
         The labels of the variables for which to record derivatives. If not given
         the dual number represents a constant, equivalent to an int or float.
     dual : 1d ndarray, optional
@@ -334,7 +367,7 @@ class Dual(DualBase):
     Attributes
     ----------
     real : float, int
-    vars : str, list of str
+    vars : str, tuple of str
     dual : 1d ndarray
 
     See Also
@@ -342,14 +375,33 @@ class Dual(DualBase):
     Dual2 : Dual number data type to perform second derivative automatic differentiation.
     """
 
-    def __init__(self, real, vars=(), dual=None):
-        self.real = real
+    def __init__(
+        self,
+        real: float,
+        vars: tuple[str, ...] = (),
+        dual: Optional[np.ndarray] = None,
+    ):
+        self.real: float = real
         if isinstance(vars, str):
-            self.vars = (vars,)
+            self.vars: tuple[str, ...] = (vars,)
         else:
             self.vars = tuple(vars)
         n = len(self.vars)
-        self.dual = np.asarray(dual.copy()) if dual is not None else np.ones(n)
+        self.dual: np.ndarray = np.asarray(dual.copy()) if dual is not None else np.ones(n)
+
+    @property
+    def dual2(self):
+        raise ValueError("`Dual` variable cannot possess `dual2` attribute")
+
+    def __repr__(self):
+        name, final = "Dual", ""
+        return f"<{name}: {self.real:,.6f}, {self.vars}, {self.dual}{final}>"
+
+    def __str__(self):
+        output = f" val = {self.real:.8f}\n"
+        for i, tag in enumerate(self.vars):
+            output += f"  d{tag} = {self.dual[i]:.6f}\n"
+        return output
 
     def __neg__(self):
         return Dual(-self.real, self.vars, -self.dual)
@@ -359,15 +411,11 @@ class Dual(DualBase):
             if isinstance(argument, np.ndarray):
                 return argument + self
             elif isinstance(argument, (*FLOATS, *INTS)):
-                return Dual(self.real + argument, self.vars, self.dual)
+                return Dual(self.real + float(argument), self.vars, self.dual)
             raise TypeError("Dual operations defined between float, int or Dual.")
 
         if self.vars == argument.vars:
-            return Dual(
-                self.real + argument.real,
-                self.vars,
-                self.dual + argument.dual
-            )
+            return Dual(self.real + argument.real, self.vars, self.dual + argument.dual)
         else:
             self_, argument = self.__upcast_combined__(argument)
             return self_ + argument
@@ -385,14 +433,14 @@ class Dual(DualBase):
             if isinstance(argument, np.ndarray):
                 return argument * self
             elif isinstance(argument, (*FLOATS, *INTS)):
-                return Dual(self.real * argument, self.vars, self.dual * argument)
+                return Dual(self.real * float(argument), self.vars, self.dual * float(argument))
             raise TypeError("Dual operations defined between float, int or Dual.")
 
         if self.vars == argument.vars:
             return Dual(
                 self.real * argument.real,
                 self.vars,
-                self.dual * argument.real + argument.dual * self.real
+                self.dual * argument.real + argument.dual * self.real,
             )
         else:
             self_, argument = self.__upcast_combined__(argument)
@@ -406,7 +454,7 @@ class Dual(DualBase):
                 return argument.__rtruediv__(self)
             if not isinstance(argument, (*FLOATS, *INTS)):
                 raise TypeError("Dual operations defined between float, int or Dual.")
-            return Dual(self.real / argument, self.vars, self.dual / argument)
+            return Dual(self.real / float(argument), self.vars, self.dual / float(argument))
         if self.vars == argument.vars:
             return self * argument**-1
         else:
@@ -416,15 +464,16 @@ class Dual(DualBase):
     def __rtruediv__(self, argument):
         if not isinstance(argument, (*FLOATS, *INTS)):
             raise TypeError("Dual operations defined between float, int or Dual.")
-        numerator = Dual(argument)
+        numerator = Dual(float(argument))
         return numerator / self
 
     def __pow__(self, power):
         if isinstance(power, (*FLOATS, *INTS)):
+            pow: float = float(power)
             return Dual(
-                self.real ** power,
+                self.real**pow,
                 self.vars,
-                self.dual * power * self.real ** (power - 1)
+                self.dual * pow * self.real ** (pow - 1),
             )
         elif isinstance(power, np.ndarray):
             return power.__rpow__(self)
@@ -446,8 +495,8 @@ class Dual(DualBase):
 
     def __downcast_vars__(self):
         """removes variables where first order sensitivity is zero"""
-        ix_ = np.where(np.isclose(self.dual, 0, atol=PRECISION) == False)[0]
-        new_vars = [self.vars[i] for i in ix_]
+        ix_ = np.where(~np.isclose(self.dual, 0, atol=PRECISION))[0]
+        new_vars = tuple(self.vars[i] for i in ix_)
         return Dual(self.real, new_vars, self.dual[ix_])
 
     def _set_order(self, order):
@@ -482,6 +531,7 @@ def dual_exp(x):
         return x.__exp__()
     return math.exp(x)
 
+
 # Licence: Creative Commons - Attribution-NonCommercial-NoDerivatives 4.0 International
 # Commercial use of this code, and/or copying and redistribution is prohibited.
 # Contact rateslib at gmail.com if this code is observed outside its intended sphere.
@@ -504,7 +554,7 @@ def dual_log(x, base=None):
     """
     if isinstance(x, (Dual, Dual2)):
         val = x.__log__()
-        return val if base is None else val * (1/math.log(base))
+        return val if base is None else val * (1 / math.log(base))
     return math.log(x) if base is None else math.log(x, base)
 
 
@@ -539,6 +589,7 @@ def _pivot_matrix(A, method=1):
 # Commercial use of this code, and/or copying and redistribution is prohibited.
 # Contact rateslib at gmail.com if this code is observed outside its intended sphere.
 
+
 def _plu_decomp(A, method=1):
     """Performs an LU Decomposition of A (which must be square)
     into PA = LU. The function returns P, L and U. Uses Doolittle algorithm.
@@ -546,7 +597,7 @@ def _plu_decomp(A, method=1):
     `method` is passed to the pivoting technique.
     """
     if method == 3:
-        raise ValueError("Partial pivoting has failed on matrix A and cannot solve.")
+        raise ArithmeticError("Partial pivoting has failed on matrix and cannot solve.")
     n = A.shape[0]
     # Create zero matrices for L and U
     L, U = np.zeros((n, n), dtype="object"), np.zeros((n, n), dtype="object")
@@ -561,7 +612,7 @@ def _plu_decomp(A, method=1):
             L[j, j] = 1.0
 
             # LaTeX: u_{ij} = a_{ij} - \sum_{k=1}^{i-1} u_{kj} l_{ik}
-            for i in range(j+1):
+            for i in range(j + 1):
                 sx = np.matmul(L[i, :i], U[:i, j])
                 # s1 = sum(U[k][j] * L[i][k] for k in range(i))
                 U[i, j] = PA[i, j] - sx
@@ -572,7 +623,7 @@ def _plu_decomp(A, method=1):
                 # s2 = sum(U[k][j] * L[i][k] for k in range(j))
                 L[i, j] = (PA[i, j] - sy) / U[j, j]
     except ZeroDivisionError:
-        return _plu_decomp(A, method+1)  # retry with altered pivoting technique
+        return _plu_decomp(A, method + 1)  # retry with altered pivoting technique
 
     return P, L, U
 
@@ -657,6 +708,42 @@ def set_order(val, order):
     elif isinstance(val, (Dual, Dual2)):
         return val._set_order(order)
 
+
+def set_order_convert(val, order, tag):
+    """
+    Convert a float, :class:`Dual` or :class:`Dual2` type to a specified alternate type.
+
+    Parameters
+    ----------
+    val : float, Dual or Dual2
+        The value to convert.
+    order : int
+        The AD order to convert the value to if necessary.
+    tag : str
+        The variable name if upcasting a float to a Dual or Dual2
+
+    Returns
+    -------
+    float, Dual, Dual2
+    """
+    if isinstance(val, (*FLOATS, *INTS)):
+        if order == 0:
+            return val
+        elif order == 1:
+            return Dual(val, tag)
+        elif order == 2:
+            return Dual2(val, tag)
+    elif isinstance(val, (Dual, Dual2)):
+        if order == 0:
+            return float(val)
+        elif (order == 1 and isinstance(val, Dual)) or (order == 2 and isinstance(val, Dual2)):
+            return val
+        else:
+            return val._set_order(order)
+
+
 # Licence: Creative Commons - Attribution-NonCommercial-NoDerivatives 4.0 International
 # Commercial use of this code, and/or copying and redistribution is prohibited.
 # Contact rateslib at gmail.com if this code is observed outside its intended sphere.
+
+DualTypes = Union[float, Dual, Dual2]
