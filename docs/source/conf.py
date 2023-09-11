@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.abspath('../..'))
 project = 'RatesLib'
 copyright = '2022, JHM Darbyshire'
 author = 'JHM Darbyshire'
-release = 'dev'
+release = '0.5.x'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
