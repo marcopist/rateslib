@@ -1620,11 +1620,16 @@ class TestPlotCurve:
 
 class TestZSurface:
 
-    def test_interp(self):
+    @pytest.mark.parametrize("z, expected", [
+        (4.0, 2.4917808219178),
+        (Dual(4.0, "x"), Dual(2.4917808219, "x", [0.24794521]))
+    ])
+    def test_interp(self, z, expected):
         zs = _ZSurface(
             x_nodes=[dt(2022, 1, 1), dt(2023, 1, 1)],
             y_nodes=[1.5, 2.5],
-            z=[[1.0, 2.0], [3.0, 4.0]]
+            z=[[1.0, 2.0], [3.0, z]]
         )
         result = zs[[dt(2022, 7, 1), 2.0]]
-        assert result == 2.50
+        assert abs(result - expected) < 1e-8
+        assert isinstance(result, type(z))
