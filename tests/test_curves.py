@@ -13,6 +13,7 @@ from rateslib.curves import (
     IndexCurve,
     CompositeCurve,
     MultiCsaCurve,
+    _ZSurface,
 )
 from rateslib.default import NoInput
 from rateslib.fx import FXRates, FXForwards
@@ -1615,3 +1616,15 @@ class TestPlotCurve:
             i_curve.plot_index(left=2.0)
         with pytest.raises(ValueError, match="`right` must be supplied as"):
             i_curve.plot_index(right=2.0)
+
+
+class TestZSurface:
+
+    def test_interp(self):
+        zs = _ZSurface(
+            x_nodes=[dt(2022, 1, 1), dt(2023, 1, 1)],
+            y_nodes=[1.5, 2.5],
+            z=[[1.0, 2.0], [3.0, 4.0]]
+        )
+        result = zs[[dt(2022, 7, 1), 2.0]]
+        assert result == 2.50

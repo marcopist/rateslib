@@ -2810,3 +2810,49 @@ def index_left(
 # Licence: Creative Commons - Attribution-NonCommercial-NoDerivatives 4.0 International
 # Commercial use of this code, and/or copying and redistribution is prohibited.
 # Contact rateslib at gmail.com if this code is observed outside its intended sphere.
+
+
+class _ZSurface:
+    """
+    Surface constructed from a function of (x, y) coordinates.
+
+    """
+
+    def __init__(
+        self,
+        x_nodes: list,
+        y_nodes: list,
+        z: Union[list, np.ndarray],
+    ):
+        self.id = uuid4().hex[:5] + "_" if id is NoInput.blank else id  # 1 in a million clash
+        self.x_nodes = x_nodes  # nodes.copy()
+        self.y_nodes = y_nodes  # nodes.copy()
+        self.x_n = len(self.x_nodes)
+        self.y_n = len(self.y_nodes)
+        self.z = np.asarray(z)
+
+    def _local_interp_(self, x: datetime, y: float):
+        # if x < self.x_nodes[0] or x > self.x_nodes[-1]:
+        #     raise NotImplementedError("Cannot interpolate `x` outside of `x_nodes`.")
+        # if y < self.y_nodes[0] or y > self.y_nodes[-1]:
+        #     raise NotImplementedError("Cannot interpolate `y` outside of `y_nodes`.")
+
+        # Bi-linear interpolation over the unit square
+        lx = index_left(self.x_nodes, self.x_n, x)
+        ly = index_left(self.y_nodes, self.y_n, y)
+        x1, x2 = self.x_nodes[lx], self.x_nodes[lx+1]
+        y1, y2 = self.y_nodes[ly], self.y_nodes[ly+1]
+        _x = (x - x1) / (x2 - x1)
+        _y = (y - y1) / (y2 - y1)
+
+        # f(x_, y_) = a00 + a10 _x + a01 _y + a11 _x _y
+        a00 = self.z[lx, ly]
+        a10 = self.z[lx+1, ly] - a00
+        a01 = self.z[lx, ly+1] - a00
+        a11 = self.z[lx+1, ly+1] - a10 - a01 -a00
+
+        _ = a00 + a10 * _x + a01 * _y + a11 * _x * _y
+        return _
+
+    def __getitem__(self, item):
+        return self._local_interp_(item[0], item[1])
