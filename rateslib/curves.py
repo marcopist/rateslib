@@ -18,7 +18,7 @@ import warnings
 import json
 from math import floor, comb
 from rateslib import defaults
-from rateslib.dual import Dual, dual_log, dual_exp, set_order_convert
+from rateslib.dual import Dual, Dual2, dual_log, dual_exp, set_order_convert
 from rateslib.splines import PPSpline
 from rateslib.default import plot, NoInput
 from rateslib.calendars import (
@@ -163,8 +163,14 @@ class _Serialize:
             raise ValueError("`order` can only be in {0, 1, 2} for auto diff calcs.")
 
         self.ad = order
+        if order == 0:
+            vars_from = None
+        elif order == 1:
+            vars_from = Dual(0.0, vars=[f"{self.id}{i}" for i in range(self.n)], dual=[])
+        else:
+            vars_from = Dual2(0.0, vars=[f"{self.id}{i}" for i in range(self.n)], dual=[], dual2=[])
         self.nodes = {
-            k: set_order_convert(v, order, f"{self.id}{i}")
+            k: set_order_convert(v, order, f"{self.id}{i}", vars_from)
             for i, (k, v) in enumerate(self.nodes.items())
         }
         self.csolve()
