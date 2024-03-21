@@ -47,7 +47,7 @@ email contact through **rateslib@gmail.com**.
      - no ETA
 
 
-1.1.0 (20th Mar 2024)
+1.1.1 (21st Mar 2024)
 **********************
 
 .. list-table::
