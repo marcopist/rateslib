@@ -105,7 +105,7 @@ pub enum FXArray {
 pub struct FXRates {
     pub(crate) fx_rates: Vec<FXRate>,
     pub(crate) currencies: IndexSet<Ccy>,
-    pub(crate) fx_array: FXArray,
+    pub(crate) fx_array: Option<FXArray>,
 }
 
 impl FXRates {
@@ -165,18 +165,12 @@ impl FXRates {
             }
         }
 
-        let (mut fx_array, mut edges) = FXRates::_create_initial_arrays(&currencies, &fx_rates);
-        let _ = FXRates::_mut_arrays_remaining_elements(
-            fx_array.view_mut(),
-            edges.view_mut(),
-            HashSet::new(),
-        )?;
-
         Ok(FXRates {
             fx_rates,
-            fx_array: FXArray::Dual(fx_array),
+            fx_array: None,
             currencies,
         })
+
     }
 
     fn _create_initial_arrays(
@@ -269,17 +263,34 @@ impl FXRates {
         }
     }
 
+    pub(crate) fn _derive_fx_array(&mut self) -> Result<(), PyErr> {
+        let (mut fx_array, mut edges) = FXRates::_create_initial_arrays(&self.currencies, &self.fx_rates);
+        let _ = FXRates::_mut_arrays_remaining_elements(
+            fx_array.view_mut(),
+            edges.view_mut(),
+            HashSet::new(),
+        )?;
+        self.fx_array = Some(FXArray::Dual(fx_array));
+        Ok(())
+    }
+
     pub fn get_ccy_index(&self, currency: &Ccy) -> Option<usize> {
         self.currencies.get_index_of(currency)
     }
 
-    pub fn rate(&self, lhs: &Ccy, rhs: &Ccy) -> Option<DualsOrF64> {
-        let dom_idx = self.currencies.get_index_of(lhs)?;
-        let for_idx = self.currencies.get_index_of(rhs)?;
+    pub fn rate(&mut self, lhs: &Ccy, rhs: &Ccy) -> Result<DualsOrF64, PyErr> {
         match &self.fx_array {
-            FXArray::F64(arr) => Some(DualsOrF64::F64(arr[[dom_idx, for_idx]].clone())),
-            FXArray::Dual(arr) => Some(DualsOrF64::Dual(arr[[dom_idx, for_idx]].clone())),
-            FXArray::Dual2(arr) => Some(DualsOrF64::Dual2(arr[[dom_idx, for_idx]].clone())),
+            None => self._derive_fx_array()?,
+            Some(_) => {}
+        }
+
+        let dom_idx = self.currencies.get_index_of(lhs).ok_or(PyValueError::new_err("Could not index `lhs` in `currencies`."))?;
+        let for_idx = self.currencies.get_index_of(rhs).ok_or(PyValueError::new_err("Could not index `rhs` in `currencies`."))?;
+        match &self.fx_array {
+            Some(FXArray::F64(arr)) => Ok(DualsOrF64::F64(arr[[dom_idx, for_idx]].clone())),
+            Some(FXArray::Dual(arr)) => Ok(DualsOrF64::Dual(arr[[dom_idx, for_idx]].clone())),
+            Some(FXArray::Dual2(arr)) => Ok(DualsOrF64::Dual2(arr[[dom_idx, for_idx]].clone())),
+            _ => panic!("Unreachable: FXArray should have been derived or errored.")
         }
     }
 
@@ -309,8 +320,8 @@ impl FXRates {
 
     pub fn set_ad_order(&mut self, ad: usize) {
         match (ad, &self.fx_array) {
-            (0, FXArray::F64(_)) | (1, FXArray::Dual(_)) | (2, FXArray::Dual2(_)) => {},
-            (1, FXArray::Dual2(arr)) => {
+            (0, Some(FXArray::F64(_))) | (1, Some(FXArray::Dual(_))) | (2, Some(FXArray::Dual2(_))) => {},
+            (1, Some(FXArray::Dual2(arr))) => {
                 let n: usize = arr.len_of(Axis(0));
                 let fx_array = FXArray::Dual(Array2::<Dual>::from_shape_vec((n,n), arr
                     .clone()
@@ -319,9 +330,9 @@ impl FXRates {
                     .collect())
                     .unwrap()
                 );
-                self.fx_array = fx_array;
+                self.fx_array = Some(fx_array);
             },
-            (2, FXArray::Dual(arr)) => {
+            (2, Some(FXArray::Dual(arr))) => {
                 let n: usize = arr.len_of(Axis(0));
                 let fx_array = FXArray::Dual2(Array2::<Dual2>::from_shape_vec((n,n), arr
                     .clone()
@@ -330,9 +341,9 @@ impl FXRates {
                     .collect())
                     .unwrap()
                 );
-                self.fx_array = fx_array;
+                self.fx_array = Some(fx_array);
             },
-            (0, FXArray::Dual(arr)) => {
+            (0, Some(FXArray::Dual(arr))) => {
                 let n: usize = arr.len_of(Axis(0));
                 let fx_array = FXArray::F64(Array2::<f64>::from_shape_vec((n,n), arr
                     .clone()
@@ -341,9 +352,9 @@ impl FXRates {
                     .collect())
                     .unwrap()
                 );
-                self.fx_array = fx_array;
+                self.fx_array = Some(fx_array);
             },
-            (0, FXArray::Dual2(arr)) => {
+            (0, Some(FXArray::Dual2(arr))) => {
                 let n: usize = arr.len_of(Axis(0));
                 let fx_array = FXArray::F64(Array2::<f64>::from_shape_vec((n,n), arr
                     .clone()
@@ -352,18 +363,18 @@ impl FXRates {
                     .collect())
                     .unwrap()
                 );
-                self.fx_array = fx_array;
+                self.fx_array = Some(fx_array);
             },
-            (1, FXArray::F64(_)) => {
+            (1, Some(FXArray::F64(_))) => {
                 let (mut fx_array, mut edges) = FXRates::_create_initial_arrays(&self.currencies, &self.fx_rates);
                 let _ = FXRates::_mut_arrays_remaining_elements(
                     fx_array.view_mut(),
                     edges.view_mut(),
                     HashSet::new(),
                 );
-                self.fx_array = FXArray::Dual(fx_array);
+                self.fx_array = Some(FXArray::Dual(fx_array));
             }
-            (2, FXArray::F64(_)) => {
+            (2, Some(FXArray::F64(_))) => {
                 let (mut fx_array, mut edges) = FXRates::_create_initial_arrays(&self.currencies, &self.fx_rates);
                 let _ = FXRates::_mut_arrays_remaining_elements(
                     fx_array.view_mut(),
@@ -377,7 +388,7 @@ impl FXRates {
                     .collect())
                     .unwrap()
                 );
-                self.fx_array = fx_array2;
+                self.fx_array = Some(fx_array2);
             },
             _ => panic!("unreachable pattern for AD: 0, 1, 2")
         }
@@ -447,7 +458,7 @@ mod tests {
         ]);
 
         let arr: Vec<f64> = match fxr.fx_array {
-            FXArray::Dual(arr) => arr.iter().map(|x| x.real()).collect(),
+            Some(FXArray::Dual(arr)) => arr.iter().map(|x| x.real()).collect(),
             _ => panic!("unreachable"),
         };
         assert!(arr
@@ -468,7 +479,8 @@ mod tests {
                     .unwrap(),
             ],
             None,
-        );
+        ).unwrap();
+        let val = fxr.rate(&Ccy::try_new("eur").unwrap(), &Ccy::try_new("sek").unwrap());
         match fxr {
             Ok(_) => assert!(false),
             Err(_) => assert!(true),

@@ -132,11 +132,12 @@ impl FXRates {
 
     #[getter]
     #[pyo3(name = "ad")]
-    fn ad_py(&self) -> PyResult<u8> {
+    fn ad_py(&self) -> PyResult<Option<u8>> {
         match &self.fx_array {
-            FXArray::F64(_) => Ok(0),
-            FXArray::Dual(_) => Ok(1),
-            FXArray::Dual2(_) => Ok(2),
+            Some(FXArray::F64(_)) => Ok(Some(0)),
+            Some(FXArray::Dual(_)) => Ok(Some(1)),
+            Some(FXArray::Dual2(_)) => Ok(Some(2)),
+            _ => Ok(None)
         }
     }
 
@@ -150,43 +151,54 @@ impl FXRates {
     #[pyo3(name = "fx_vector")]
     fn fx_vector_py(&self) -> PyResult<Vec<DualsOrF64>> {
         match &self.fx_array {
-            FXArray::F64(arr) => Ok(arr
+            Some(FXArray::F64(arr)) => Ok(arr
                 .row(0)
                 .iter()
                 .map(|x| DualsOrF64::F64(x.clone()))
                 .collect()),
-            FXArray::Dual(arr) => Ok(arr
+            Some(FXArray::Dual(arr)) => Ok(arr
                 .row(0)
                 .iter()
                 .map(|x| DualsOrF64::Dual(x.clone()))
                 .collect()),
-            FXArray::Dual2(arr) => Ok(arr
+            Some(FXArray::Dual2(arr)) => Ok(arr
                 .row(0)
                 .iter()
                 .map(|x| DualsOrF64::Dual2(x.clone()))
                 .collect()),
+            _ => panic!("Need to address the caching of FXArray and derive it here.")
         }
     }
 
     #[getter]
     #[pyo3(name = "fx_array")]
-    fn fx_array_py(&self) -> PyResult<Vec<Vec<DualsOrF64>>> {
+    fn fx_array_py(&mut self) -> PyResult<Vec<Vec<DualsOrF64>>> {
+        // FXArray operates as a cached field. If not present determine it and progress.
         match &self.fx_array {
-            FXArray::F64(arr) => Ok(arr
-                .lanes(Axis(1))
-                .into_iter()
-                .map(|row| row.iter().map(|d| DualsOrF64::F64(d.clone())).collect())
-                .collect()),
-            FXArray::Dual(arr) => Ok(arr
-                .lanes(Axis(1))
-                .into_iter()
-                .map(|row| row.iter().map(|d| DualsOrF64::Dual(d.clone())).collect())
-                .collect()),
-            FXArray::Dual2(arr) => Ok(arr
-                .lanes(Axis(1))
-                .into_iter()
-                .map(|row| row.iter().map(|d| DualsOrF64::Dual2(d.clone())).collect())
-                .collect()),
+            None => { let _ = self._derive_fx_array()?; },
+            _ => {}
+        }
+        match &self.fx_array {
+            Some(fx_array) => {
+                match fx_array {
+                    FXArray::F64(arr) => Ok(arr
+                        .lanes(Axis(1))
+                        .into_iter()
+                        .map(|row| row.iter().map(|d| DualsOrF64::F64(d.clone())).collect())
+                        .collect()),
+                    FXArray::Dual(arr) => Ok(arr
+                        .lanes(Axis(1))
+                        .into_iter()
+                        .map(|row| row.iter().map(|d| DualsOrF64::Dual(d.clone())).collect())
+                        .collect()),
+                    FXArray::Dual2(arr) => Ok(arr
+                        .lanes(Axis(1))
+                        .into_iter()
+                        .map(|row| row.iter().map(|d| DualsOrF64::Dual2(d.clone())).collect())
+                        .collect()),
+                }
+            }
+            _ => panic!("Unreachable: FXArray should have calculated or errored.")
         }
     }
 
@@ -196,8 +208,8 @@ impl FXRates {
     }
 
     #[pyo3(name = "rate")]
-    fn rate_py(&self, lhs: &Ccy, rhs: &Ccy) -> PyResult<Option<DualsOrF64>> {
-        Ok(self.rate(lhs, rhs))
+    fn rate_py(&mut self, lhs: &Ccy, rhs: &Ccy) -> PyResult<DualsOrF64> {
+        self.rate(lhs, rhs)
     }
 
     #[pyo3(name = "update")]
