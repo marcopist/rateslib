@@ -48,6 +48,6 @@ default = ["abi3-py39", "py03-chrono"]
 [dev-dependencies]
 criterion = { version = "0.4", features = ["html_reports"] }
 
-[[bench]]
-name = "my_benchmark"
-harness = false
+#[[bench]]
+#name = "my_benchmark"
+#harness = false
