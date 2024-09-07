@@ -12,7 +12,7 @@ from typing import NoReturn
 import numpy as np
 from pandas import DataFrame, MultiIndex, Series, concat, isna
 
-# from scipy.optimize import brentq
+from scipy.optimize import brentq
 from pandas.tseries.offsets import CustomBusinessDay
 
 from rateslib import defaults
@@ -2511,9 +2511,9 @@ class FixedRateBond(Sensitivities, BondMixin, BaseMixin):
             # back below, see PR GH3
             return self._price_from_ytm(y, settlement, self.calc_mode, dirty) - float(price)
 
-        # x = brentq(root, -99, 10000)  # remove dependence to scipy.optimize.brentq
+        x = brentq(root, -99, 10000)  # remove dependence to scipy.optimize.brentq
         # x, iters = _brents(root, -99, 10000)  # use own local brents code
-        x = _ytm_quadratic_converger2(root, -3.0, 2.0, 12.0)  # use special quad interp
+        # x = _ytm_quadratic_converger2(root, -3.0, 2.0, 12.0)  # use special quad interp
 
         if isinstance(price, Dual):
             # use the inverse function theorem to express x as a Dual
