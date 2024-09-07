@@ -10219,43 +10219,6 @@ class Portfolio(Sensitivities):
 # Contact rateslib at gmail.com if this code is observed outside its intended sphere.
 
 
-# def _ytm_quadratic_converger(f, y0, y1, y2, tol=1e-9):
-#     """
-#     Convert a price from yield function `f` into a quadratic approximation and
-#     determine the root, yield, which matches the target price.
-#     """
-#     _A = np.array([[y0**2, y0, 1], [y1**2, y1, 1], [y2**2, y2, 1]])
-#     _b = np.array([f(y0), f(y1), f(y2)])[:, None]
-#
-#     # check tolerance from previous recursive estimations
-#     if abs(_b[1, 0]) < tol:
-#         return y1
-#
-#     c = np.linalg.solve(_A, _b)
-#
-#     yield1 = ((-c[1] + sqrt(c[1]**2 - 4 * c[0] * c[2])) / (2 * c[0]))[0]
-#     yield2 = ((-c[1] - sqrt(c[1]**2 - 4 * c[0] * c[2])) / (2 * c[0]))[0]
-#     z1, z2 = f(yield1), f(yield2)
-#
-#     # make a linear guess at new quadratic solution
-#     approx_yield = yield1 - (yield2 - yield1) * z1 / (z2 - z1)
-#     if abs(z1) < abs(z2):
-#         soln_yield = yield1
-#         if abs(z1) < tol:
-#             return soln_yield
-#     else:
-#         soln_yield = yield2
-#         if abs(z2) < tol:
-#             return soln_yield
-#     return _ytm_quadratic_converger(
-#         f,
-#         approx_yield - max(10 * (approx_yield - soln_yield), 0.001),
-#         approx_yield,
-#         approx_yield + max(10 * (approx_yield - soln_yield), 0.001),
-#         tol
-#     )
-
-
 def _ytm_quadratic_converger2(f, y0, y1, y2, f0=None, f1=None, f2=None, tol=1e-9):
     """
     Convert a price from yield function `f` into a quadratic approximation and
@@ -10281,16 +10244,19 @@ def _ytm_quadratic_converger2(f, y0, y1, y2, f0=None, f1=None, f2=None, tol=1e-9
             tol,
         )
 
-    _b = np.array([y0, y1, y2])[:, None]
+    _b = np.array([f0, f1, f2])[:, None]
     # check tolerance from previous recursive estimations
     for i, f_ in enumerate([f0, f1, f2]):
         if abs(f_) < tol:
             return _b[i, 0]
 
-    _A = np.array([[f0**2, f0, 1], [f1**2, f1, 1], [f2**2, f2, 1]])
+    _A = np.array([[y0**2, y0, 1], [y1**2, y1, 1], [y2**2, y2, 1]])
     c = np.linalg.solve(_A, _b)
-    y = c[2, 0]
+    y = quadratic_eqn(c[0, 0], c[1, 0], c[2, 0], y1)
+    y = y['g']
     f_ = f(y)
+    if abs(f_) < tol:
+        return y
 
     pad = min(tol * 1e8, 0.0001, abs(f_ * 1e4))  # avoids singular matrix error
     if y <= y0:
@@ -10307,14 +10273,14 @@ def _ytm_quadratic_converger2(f, y0, y1, y2, f0=None, f1=None, f2=None, tol=1e-9
         )  # pragma: no cover
     elif y0 < y <= y1:
         if (y - y0) < (y1 - y):
-            return _ytm_quadratic_converger2(f, y0 - pad, y, 2 * y - y0 + pad, None, f_, None, tol)
+            return _ytm_quadratic_converger2(f, y0, y, 2 * y - y0 + pad, f0, f_, None, tol)
         else:
-            return _ytm_quadratic_converger2(f, 2 * y - y1 - pad, y, y1 + pad, None, f_, None, tol)
+            return _ytm_quadratic_converger2(f, 2 * y - y1 - pad, y, y1, None, f_, f1, tol)
     elif y1 < y <= y2:
         if (y - y1) < (y2 - y):
-            return _ytm_quadratic_converger2(f, y1 - pad, y, 2 * y - y1 + pad, None, f_, None, tol)
+            return _ytm_quadratic_converger2(f, y1, y, 2 * y - y1 + pad, f1, f_, None, tol)
         else:
-            return _ytm_quadratic_converger2(f, 2 * y - y2 - pad, y, y2 + pad, None, f_, None, tol)
+            return _ytm_quadratic_converger2(f, 2 * y - y2 - pad, y, y2, None, f_, f2, tol)
     else:  # y2 < y:
         # line not hit due to reassessment of initial vars?
         return _ytm_quadratic_converger2(
